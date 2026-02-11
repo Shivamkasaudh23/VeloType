@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VeloType — Typing Practice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header id="header">
+    <div class="header-left">
+      <h1 class="logo">⚡ VeloType</h1>
+    </div>
+    <div class="header-right">
+      <button id="themeToggle" class="icon-btn" title="Toggle theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== MODE SELECTOR ===== -->
+  <div id="modeSelector">
+    <div class="mode-group">
+      <button class="mode-toggle" id="togglePunctuation" title="Punctuation">@ punctuation</button>
+      <button class="mode-toggle" id="toggleNumbers" title="Numbers"># numbers</button>
+    </div>
+    <div class="mode-separator"></div>
+    <div class="mode-group">
+      <button class="mode-btn active" data-mode="time" data-value="15">time</button>
+      <button class="mode-btn" data-mode="words" data-value="25">words</button>
+    </div>
+    <div class="mode-separator"></div>
+    <div class="mode-group" id="timeOptions">
+      <button class="sub-mode-btn active" data-value="15">15</button>
+      <button class="sub-mode-btn" data-value="30">30</button>
+      <button class="sub-mode-btn" data-value="60">60</button>
+      <button class="sub-mode-btn" data-value="120">120</button>
+    </div>
+    <div class="mode-group hidden" id="wordOptions">
+      <button class="sub-mode-btn active" data-value="10">10</button>
+      <button class="sub-mode-btn" data-value="25">25</button>
+      <button class="sub-mode-btn" data-value="50">50</button>
+      <button class="sub-mode-btn" data-value="100">100</button>
+    </div>
+  </div>
+
+  <!-- ===== TYPING TEST ===== -->
+  <div id="typingTest">
+    <div id="liveStats">
+      <div class="live-stat" id="liveWpm">
+        <span class="stat-value">0</span>
+        <span class="stat-label">wpm</span>
+      </div>
+      <div class="live-stat" id="liveAcc">
+        <span class="stat-value">100</span>
+        <span class="stat-label">acc</span>
+      </div>
+      <div class="live-stat" id="liveTimer">
+        <span class="stat-value">15</span>
+        <span class="stat-label">time</span>
+      </div>
+    </div>
+
+    <div id="wordsWrapper">
+      <div id="caret"></div>
+      <div id="words"></div>
+      <div id="focusWarning">
+        <div class="focus-message">Click here or press any key to focus</div>
+      </div>
+    </div>
+
+    <textarea id="inputField" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" tabindex="0"></textarea>
+  </div>
+
+  <!-- ===== RESULTS ===== -->
+  <div id="result" class="hidden">
+    <div class="result-header">
+      <div class="result-main-stat">
+        <div class="result-big-number" id="resultWpm">0</div>
+        <div class="result-big-label">wpm</div>
+        <div class="pb-indicator hidden" id="pbIndicator">👑 new personal best!</div>
+      </div>
+      <div class="result-main-stat">
+        <div class="result-big-number" id="resultAcc">0%</div>
+        <div class="result-big-label">acc</div>
+      </div>
+    </div>
+
+    <div class="result-stats-grid">
+      <div class="result-stat-card">
+        <div class="stat-card-value" id="resultRaw">0</div>
+        <div class="stat-card-label">raw wpm</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="stat-card-value" id="resultConsistency">0%</div>
+        <div class="stat-card-label">consistency</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="stat-card-value" id="resultChars">0/0/0/0</div>
+        <div class="stat-card-label">correct / incorrect / extra / missed</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="stat-card-value" id="resultTime">0s</div>
+        <div class="stat-card-label">time</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="stat-card-value" id="resultTestType">time 15</div>
+        <div class="stat-card-label">test type</div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="wpmChart"></canvas>
+    </div>
+
+    <div class="result-actions">
+      <button id="restartBtn" class="restart-btn" title="Restart (Tab + Enter)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        restart
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer id="footer">
+    <div class="footer-hint">tab + enter — restart test</div>
+    <div class="footer-credit">created by Shivam Kasaudhan</div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="words.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
