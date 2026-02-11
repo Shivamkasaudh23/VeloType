@@ -202,7 +202,25 @@ function handleLineScroll() {
 
 // ===== INPUT HANDLING =====
 function handleInput(e) {
-  const inputValue = dom.inputField.value;
+  let inputValue = dom.inputField.value;
+
+  if (inputValue.includes(' ')) {
+    const parts = inputValue.split(' ');
+    const lastPart = parts.pop() ?? '';
+
+    parts.forEach((part) => {
+      if (part.length === 0) return;
+      if (!state.isActive && !state.isFinished) {
+        startTest();
+      }
+      finalizeWord(part);
+      moveToNextWord();
+    });
+
+    dom.inputField.value = lastPart;
+    inputValue = lastPart;
+  }
+
   const currentWord = state.words[state.currentWordIndex];
   const activeWordEl = dom.wordsContainer.querySelector('.word.active');
 
