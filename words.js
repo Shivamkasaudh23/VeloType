@@ -325,10 +325,163 @@ const WORD_LIST = [
   "wrap", "yellow", "yield", "youngster", "yourself", "zone"
 ];
 
-function getRandomWords(count) {
+// ===== EASY WORDS (short, common, 2-4 letters) =====
+const EASY_WORDS = [
+  "the", "be", "to", "of", "and", "a", "in", "it", "for", "not",
+  "on", "he", "as", "do", "at", "but", "by", "we", "or", "an",
+  "my", "so", "up", "if", "me", "no", "go", "us", "am", "is",
+  "was", "are", "has", "had", "can", "all", "her", "him", "his",
+  "how", "its", "let", "may", "new", "now", "old", "our", "out",
+  "own", "say", "she", "too", "use", "way", "who", "did", "get",
+  "hot", "man", "run", "sit", "top", "red", "big", "cut", "eat",
+  "end", "far", "got", "put", "ran", "set", "try", "ask", "boy",
+  "car", "day", "eye", "few", "fun", "win", "yes", "air", "age",
+  "ago", "bed", "box", "cup", "dog", "ear", "fly", "gun", "hat",
+  "ice", "job", "key", "leg", "map", "net", "oil", "pay", "row",
+  "sea", "sun", "ten", "tie", "war", "web", "yet", "arm", "art",
+  "bad", "bit", "bus", "cat", "die", "due", "dry", "fan", "fit",
+  "fix", "gas", "god", "hit", "hop", "joy", "kid", "lay", "lie",
+  "log", "lot", "low", "mad", "mix", "nor", "odd", "per", "pet",
+  "pin", "pop", "raw", "rid", "sad", "six", "sky", "tax", "tip",
+  "via", "wet", "add", "aim", "ban", "bar", "bay", "bid", "bow",
+  "bug", "cab", "cap", "cow", "cry", "dig", "dim", "dot", "dip"
+];
+
+// ===== HARD WORDS (longer, less common) =====
+const HARD_WORDS = [
+  "acknowledge", "acquisition", "administrative", "aforementioned", "approximately",
+  "architecture", "authentication", "autobiography", "breathtaking", "bureaucratic",
+  "cardiovascular", "characteristic", "chronological", "circumstantial", "collaboration",
+  "communication", "comprehensive", "concentration", "configuration", "congressional",
+  "conscientious", "consciousness", "constellation", "controversial", "correspondence",
+  "counterproductive", "determination", "discrimination", "disproportionate", "distinguished",
+  "electromagnetic", "encapsulation", "entrepreneurial", "environmental", "establishment",
+  "extraordinary", "fundamentally", "grandchildren", "hallucination", "heterogeneous",
+  "hypothetical", "identification", "implementation", "improvisation", "incarceration",
+  "incomprehensible", "infrastructure", "insignificant", "institutional", "interdependent",
+  "interpretation", "investigation", "jurisdictional", "knowledgeable", "legitimately",
+  "malfunctioning", "manufacturing", "mathematician", "miscellaneous", "misunderstanding",
+  "neuroscientist", "notwithstanding", "organizational", "overwhelming", "parliamentary",
+  "pharmaceutical", "philosophical", "predominantly", "procrastinate", "pronunciation",
+  "psychological", "quintessential", "reconnaissance", "recommendation", "representative",
+  "responsibility", "revolutionary", "simultaneously", "sophistication", "straightforward",
+  "superintendent", "supplementary", "sustainability", "technological", "telecommunication",
+  "transformation", "transportation", "uncomfortable", "unconventional", "understanding",
+  "unprecedented", "vulnerability", "whistleblower", "acknowledgment", "approximately",
+  "biodiversity", "catastrophic", "compatibility", "consolidation", "contemplation",
+  "contradiction", "distinguished", "electromagnetic", "experimentation", "functionality",
+  "globalization", "hallucinating", "illustration", "inappropriate", "justification",
+  "manufacturing", "nevertheless", "overwhelmingly", "predominantly", "questionnaire",
+  "revolutionary", "sophisticated", "unfortunately", "vulnerability", "extraordinary"
+];
+
+// ===== EXPERT WORDS (programming keywords & technical) =====
+const EXPERT_WORDS = [
+  "function", "variable", "const", "let", "class", "constructor", "prototype",
+  "async", "await", "promise", "callback", "interface", "abstract", "extends",
+  "implements", "import", "export", "default", "module", "require", "package",
+  "static", "private", "public", "protected", "return", "yield", "throw",
+  "catch", "finally", "typeof", "instanceof", "delete", "void", "null",
+  "undefined", "boolean", "string", "number", "symbol", "bigint", "object",
+  "array", "tuple", "enum", "generic", "decorator", "middleware", "endpoint",
+  "database", "schema", "migration", "transaction", "query", "mutation",
+  "resolver", "subscription", "component", "template", "directive", "lifecycle",
+  "dependency", "injection", "singleton", "factory", "observer", "iterator",
+  "generator", "proxy", "reflect", "weakmap", "weakset", "buffer", "stream",
+  "pipeline", "socket", "protocol", "encryption", "decryption", "algorithm",
+  "recursion", "iteration", "polymorphism", "encapsulation", "inheritance",
+  "abstraction", "composition", "aggregation", "serialization", "deserialization",
+  "authentication", "authorization", "middleware", "controller", "repository",
+  "microservice", "monolith", "container", "kubernetes", "docker", "terraform",
+  "ansible", "jenkins", "pipeline", "deployment", "continuous", "integration",
+  "refactor", "debugger", "breakpoint", "stacktrace", "exception", "runtime",
+  "compiler", "interpreter", "bytecode", "assembly", "binary", "hexadecimal",
+  "fibonacci", "quicksort", "mergesort", "hashtable", "linkedlist", "binarytree",
+  "graphql", "restful", "webhook", "websocket", "payload", "stringify",
+  "parse", "serialize", "regex", "expression", "callback", "closure",
+  "hoisting", "destructuring", "spread", "operator", "ternary", "bitwise",
+  "concatenation", "interpolation", "immutable", "idempotent", "asynchronous",
+  "synchronous", "concurrent", "parallel", "distributed", "scalable",
+  "responsive", "accessibility", "performance", "optimization", "minification",
+  "transpiler", "bundler", "linter", "formatter", "typescript", "javascript",
+  "python", "rust", "golang", "kotlin", "swift", "csharp", "markdown",
+  "dockerfile", "yaml", "json", "xml", "html", "css", "sass", "webpack",
+  "rollup", "eslint", "prettier", "jest", "mocha", "cypress", "selenium",
+  "storybook", "chromatic", "figma", "sketch", "postgresql", "mongodb",
+  "redis", "elasticsearch", "kafka", "rabbitmq", "nginx", "apache"
+];
+
+// ===== FAMOUS QUOTES =====
+const QUOTES = [
+  { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+  { text: "Innovation distinguishes between a leader and a follower.", author: "Steve Jobs" },
+  { text: "Stay hungry, stay foolish.", author: "Steve Jobs" },
+  { text: "Life is what happens when you're busy making other plans.", author: "John Lennon" },
+  { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" },
+  { text: "It is during our darkest moments that we must focus to see the light.", author: "Aristotle" },
+  { text: "The purpose of our lives is to be happy.", author: "Dalai Lama" },
+  { text: "Get busy living or get busy dying.", author: "Stephen King" },
+  { text: "You only live once, but if you do it right, once is enough.", author: "Mae West" },
+  { text: "Many of life's failures are people who did not realize how close they were to success when they gave up.", author: "Thomas Edison" },
+  { text: "Tell me and I forget. Teach me and I remember. Involve me and I learn.", author: "Benjamin Franklin" },
+  { text: "The best time to plant a tree was twenty years ago. The second best time is now.", author: "Chinese Proverb" },
+  { text: "Not everything that is faced can be changed, but nothing can be changed until it is faced.", author: "James Baldwin" },
+  { text: "An unexamined life is not worth living.", author: "Socrates" },
+  { text: "Spread love everywhere you go. Let no one ever come to you without leaving happier.", author: "Mother Teresa" },
+  { text: "When you reach the end of your rope, tie a knot in it and hang on.", author: "Franklin Roosevelt" },
+  { text: "Always remember that you are absolutely unique. Just like everyone else.", author: "Margaret Mead" },
+  { text: "The greatest glory in living lies not in never falling, but in rising every time we fall.", author: "Nelson Mandela" },
+  { text: "In the end, it is not the years in your life that count. It is the life in your years.", author: "Abraham Lincoln" },
+  { text: "Never let the fear of striking out keep you from playing the game.", author: "Babe Ruth" },
+  { text: "Life is either a daring adventure or nothing at all.", author: "Helen Keller" },
+  { text: "The only impossible journey is the one you never begin.", author: "Tony Robbins" },
+  { text: "Everything you can imagine is real.", author: "Pablo Picasso" },
+  { text: "Do not go where the path may lead, go instead where there is no path and leave a trail.", author: "Ralph Waldo Emerson" },
+  { text: "In three words I can sum up everything I learned about life: it goes on.", author: "Robert Frost" },
+  { text: "If you look at what you have in life, you will always have more.", author: "Oprah Winfrey" },
+  { text: "The mind is everything. What you think you become.", author: "Buddha" },
+  { text: "Strive not to be a success, but rather to be of value.", author: "Albert Einstein" },
+  { text: "The best revenge is massive success.", author: "Frank Sinatra" },
+  { text: "I have not failed. I have just found ten thousand ways that do not work.", author: "Thomas Edison" },
+  { text: "A person who never made a mistake never tried anything new.", author: "Albert Einstein" },
+  { text: "The only limit to our realization of tomorrow will be our doubts of today.", author: "Franklin Roosevelt" },
+  { text: "What you get by achieving your goals is not as important as what you become by achieving your goals.", author: "Zig Ziglar" },
+  { text: "Believe you can and you are halfway there.", author: "Theodore Roosevelt" },
+  { text: "Act as if what you do makes a difference. It does.", author: "William James" },
+  { text: "Success is not final, failure is not fatal, it is the courage to continue that counts.", author: "Winston Churchill" },
+  { text: "It always seems impossible until it is done.", author: "Nelson Mandela" },
+  { text: "Happiness is not something ready made. It comes from your own actions.", author: "Dalai Lama" },
+  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+  { text: "Do what you can with all you have wherever you are.", author: "Theodore Roosevelt" },
+  { text: "We may encounter many defeats but we must not be defeated.", author: "Maya Angelou" },
+  { text: "Whether you think you can or you think you cannot, you are right.", author: "Henry Ford" },
+  { text: "The only person you are destined to become is the person you decide to be.", author: "Ralph Waldo Emerson" },
+  { text: "Go confidently in the direction of your dreams. Live the life you have imagined.", author: "Henry David Thoreau" },
+  { text: "When I let go of what I am, I become what I might be.", author: "Lao Tzu" },
+  { text: "The best way to predict your future is to create it.", author: "Abraham Lincoln" },
+  { text: "You must be the change you wish to see in the world.", author: "Mahatma Gandhi" },
+  { text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius" },
+  { text: "If you want to lift yourself up, lift up someone else.", author: "Booker T. Washington" },
+  { text: "We become what we think about most of the time, and that is the strangest secret.", author: "Earl Nightingale" }
+];
+
+// ===== WORD SELECTION BY DIFFICULTY =====
+function getRandomWords(count, difficulty) {
+  difficulty = difficulty || 'medium';
+  let source;
+  switch (difficulty) {
+    case 'easy': source = EASY_WORDS; break;
+    case 'hard': source = HARD_WORDS; break;
+    case 'expert': source = EXPERT_WORDS; break;
+    default: source = WORD_LIST; break;
+  }
   const words = [];
   for (let i = 0; i < count; i++) {
-    words.push(WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)]);
+    words.push(source[Math.floor(Math.random() * source.length)]);
   }
   return words;
+}
+
+function getRandomQuote() {
+  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
 }

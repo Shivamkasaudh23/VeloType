@@ -14,9 +14,30 @@
   <!-- ===== HEADER ===== -->
   <header id="header">
     <div class="header-left">
-      <h1 class="logo">⚡ VeloType</h1>
+      <a href="index.html" class="logo-link"><h1 class="logo">⚡ VeloType</h1></a>
+    </div>
+    <div class="header-center">
+      <div id="streakDisplay" class="streak-display" title="Daily streak">
+        <span class="streak-icon">🔥</span>
+        <span id="streakCount">0</span>
+      </div>
+      <div id="dailyGoalDisplay" class="daily-goal-display" title="Daily goal progress">
+        <div class="goal-bar-wrap">
+          <div class="goal-bar-fill" id="goalBarFill"></div>
+        </div>
+        <span class="goal-text" id="goalText">0/50 wpm goal</span>
+      </div>
     </div>
     <div class="header-right">
+      <button id="soundToggle" class="icon-btn" title="Toggle sound">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+      </button>
+      <button id="statsBtn" class="icon-btn" title="Typing history">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      </button>
+      <button id="settingsBtn" class="icon-btn" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
       <button id="themeToggle" class="icon-btn" title="Toggle theme">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
       </button>
@@ -33,6 +54,15 @@
     <div class="mode-group">
       <button class="mode-btn active" data-mode="time" data-value="15">time</button>
       <button class="mode-btn" data-mode="words" data-value="25">words</button>
+      <button class="mode-btn" data-mode="quote">quote</button>
+      <button class="mode-btn" data-mode="custom">custom</button>
+    </div>
+    <div class="mode-separator"></div>
+    <div class="mode-group" id="difficultyOptions">
+      <button class="diff-btn" data-diff="easy">easy</button>
+      <button class="diff-btn active" data-diff="medium">medium</button>
+      <button class="diff-btn" data-diff="hard">hard</button>
+      <button class="diff-btn" data-diff="expert">expert</button>
     </div>
     <div class="mode-separator"></div>
     <div class="mode-group" id="timeOptions">
@@ -64,6 +94,17 @@
         <span class="stat-value">15</span>
         <span class="stat-label">time</span>
       </div>
+    </div>
+
+    <!-- Capslock Warning -->
+    <div id="capslockWarning" class="capslock-warning hidden">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Caps Lock is ON
+    </div>
+
+    <!-- Quote info -->
+    <div id="quoteInfo" class="quote-info hidden">
+      <span id="quoteAuthor"></span>
     </div>
 
     <div id="wordsWrapper">
@@ -118,11 +159,123 @@
       <canvas id="wpmChart"></canvas>
     </div>
 
+    <!-- Keyboard Heatmap -->
+    <div class="heatmap-container" id="heatmapContainer">
+      <h3 class="heatmap-title">Keyboard Heatmap</h3>
+      <div class="heatmap-legend">
+        <span class="legend-label">accurate</span>
+        <div class="legend-gradient"></div>
+        <span class="legend-label">error-prone</span>
+      </div>
+      <div id="keyboardHeatmap" class="keyboard-heatmap"></div>
+    </div>
+
     <div class="result-actions">
       <button id="restartBtn" class="restart-btn" title="Restart (Tab + Enter)">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         restart
       </button>
+      <button id="exportBtn" class="restart-btn" title="Export results">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        export
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== STATS MODAL ===== -->
+  <div id="statsModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Typing Stats</h2>
+        <button class="modal-close" id="statsClose">&times;</button>
+      </div>
+      <div class="stats-summary">
+        <div class="summary-card">
+          <div class="summary-value" id="statsTotalTests">0</div>
+          <div class="summary-label">tests taken</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value" id="statsAvgWpm">0</div>
+          <div class="summary-label">avg wpm</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value" id="statsBestWpm">0</div>
+          <div class="summary-label">best wpm</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value" id="statsTotalTime">0m</div>
+          <div class="summary-label">total time</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value" id="statsAvgAcc">0%</div>
+          <div class="summary-label">avg accuracy</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value" id="statsStreak">0</div>
+          <div class="summary-label">day streak</div>
+        </div>
+      </div>
+      <h3 class="history-title">Recent Tests</h3>
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr><th>wpm</th><th>raw</th><th>acc</th><th>mode</th><th>time</th><th>date</th></tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button id="clearHistoryBtn" class="restart-btn">clear history</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS MODAL ===== -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" id="settingsClose">&times;</button>
+      </div>
+      <div class="settings-list">
+        <div class="setting-item">
+          <span class="setting-label">Caret Style</span>
+          <div class="setting-options">
+            <button class="setting-btn active" data-caret="line">| line</button>
+            <button class="setting-btn" data-caret="block">█ block</button>
+            <button class="setting-btn" data-caret="underline">_ underline</button>
+          </div>
+        </div>
+        <div class="setting-item">
+          <span class="setting-label">Sound Effects</span>
+          <div class="setting-options">
+            <button class="setting-btn" id="soundOnBtn" data-sound="on">on</button>
+            <button class="setting-btn active" id="soundOffBtn" data-sound="off">off</button>
+          </div>
+        </div>
+        <div class="setting-item">
+          <span class="setting-label">Daily WPM Goal</span>
+          <div class="setting-options">
+            <input type="number" id="dailyGoalInput" class="setting-input" min="10" max="200" value="50">
+            <button class="setting-btn" id="saveGoalBtn">save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOM TEXT MODAL ===== -->
+  <div id="customTextModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Custom Text</h2>
+        <button class="modal-close" id="customTextClose">&times;</button>
+      </div>
+      <p class="modal-desc">Paste your own text to practice typing.</p>
+      <textarea id="customTextArea" class="custom-textarea" placeholder="Type or paste your text here..."></textarea>
+      <div class="modal-actions">
+        <button id="startCustomBtn" class="restart-btn">start typing</button>
+      </div>
     </div>
   </div>
 

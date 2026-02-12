@@ -36,16 +36,50 @@ const dom = {
   togglePunctuation: document.getElementById('togglePunctuation'),
   toggleNumbers: document.getElementById('toggleNumbers'),
   themeToggle: document.getElementById('themeToggle'),
+  // New feature elements
+  soundToggle: document.getElementById('soundToggle'),
+  statsBtn: document.getElementById('statsBtn'),
+  settingsBtn: document.getElementById('settingsBtn'),
+  statsModal: document.getElementById('statsModal'),
+  statsClose: document.getElementById('statsClose'),
+  settingsModal: document.getElementById('settingsModal'),
+  settingsClose: document.getElementById('settingsClose'),
+  customTextModal: document.getElementById('customTextModal'),
+  customTextClose: document.getElementById('customTextClose'),
+  customTextArea: document.getElementById('customTextArea'),
+  startCustomBtn: document.getElementById('startCustomBtn'),
+  capslockWarning: document.getElementById('capslockWarning'),
+  quoteInfo: document.getElementById('quoteInfo'),
+  quoteAuthor: document.getElementById('quoteAuthor'),
+  difficultyOptions: document.getElementById('difficultyOptions'),
+  heatmapContainer: document.getElementById('heatmapContainer'),
+  keyboardHeatmap: document.getElementById('keyboardHeatmap'),
+  exportBtn: document.getElementById('exportBtn'),
+  streakCount: document.getElementById('streakCount'),
+  goalBarFill: document.getElementById('goalBarFill'),
+  goalText: document.getElementById('goalText'),
+  dailyGoalInput: document.getElementById('dailyGoalInput'),
+  saveGoalBtn: document.getElementById('saveGoalBtn'),
+  clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+  // Stats display
+  statsTotalTests: document.getElementById('statsTotalTests'),
+  statsAvgWpm: document.getElementById('statsAvgWpm'),
+  statsBestWpm: document.getElementById('statsBestWpm'),
+  statsTotalTime: document.getElementById('statsTotalTime'),
+  statsAvgAcc: document.getElementById('statsAvgAcc'),
+  statsStreak: document.getElementById('statsStreak'),
+  historyTableBody: document.getElementById('historyTableBody'),
 };
 
 // ===== STATE =====
 const state = {
-  mode: 'time',           // 'time' or 'words'
+  mode: 'time',           // 'time', 'words', 'quote', or 'custom'
   modeValue: 15,          // seconds or word count
   isActive: false,        // test started
   isFinished: false,      // test ended
   punctuation: false,
   numbers: false,
+  difficulty: 'medium',   // 'easy', 'medium', 'hard', 'expert'
   words: [],              // array of word strings
   currentWordIndex: 0,
   currentLetterIndex: 0,
@@ -68,10 +102,21 @@ const state = {
   totalKeystrokes: 0,
   // Caret
   caretBlinkTimeout: null,
+  caretStyle: 'line',     // 'line', 'block', 'underline'
   // Chart instance
   chartInstance: null,
   // Tab+Enter
   tabPressed: false,
+  // Sound
+  soundEnabled: false,
+  audioCtx: null,
+  // Quote
+  currentQuote: null,
+  // Key error tracking for heatmap
+  keyErrors: {},          // { key: errorCount }
+  keyTotal: {},           // { key: totalPresses }
+  // Capslock
+  capsLockOn: false,
 };
 
 // ===== PUNCTUATION & NUMBER HELPERS =====
@@ -104,6 +149,18 @@ function applyNumbers(words) {
 // ===== WORD GENERATION =====
 function generateWords() {
   let count;
+
+  if (state.mode === 'quote') {
+    state.currentQuote = getRandomQuote();
+    state.words = state.currentQuote.text.split(' ');
+    return;
+  }
+
+  if (state.mode === 'custom') {
+    // words already set from custom text modal
+    return;
+  }
+
   if (state.mode === 'words') {
     count = state.modeValue;
   } else {
@@ -111,7 +168,7 @@ function generateWords() {
     count = Math.max(200, state.modeValue * 5);
   }
 
-  let words = getRandomWords(count);
+  let words = getRandomWords(count, state.difficulty);
   words = applyNumbers(words);
   words = words.map((w, i) => applyPunctuation(w, i, words.length));
   state.words = words;
@@ -276,6 +333,18 @@ function handleInput(e) {
   }
   activeWordEl.classList.toggle('error', hasError);
 
+  // Shake animation on new error
+  if (hasError && inputValue.length > 0) {
+    const lastCharIndex = inputValue.length - 1;
+    if (lastCharIndex < currentWord.length && inputValue[lastCharIndex] !== currentWord[lastCharIndex]) {
+      triggerShake(activeWordEl);
+      playErrorSound();
+    } else if (lastCharIndex >= currentWord.length) {
+      triggerShake(activeWordEl);
+      playErrorSound();
+    }
+  }
+
   updateCaret();
 
   // Update live WPM/accuracy on every keystroke for responsiveness
@@ -285,6 +354,31 @@ function handleInput(e) {
 }
 
 function handleKeydown(e) {
+  // Capslock detection
+  if (e.getModifierState) {
+    const capsOn = e.getModifierState('CapsLock');
+    if (capsOn !== state.capsLockOn) {
+      state.capsLockOn = capsOn;
+      dom.capslockWarning.classList.toggle('hidden', !capsOn);
+    }
+  }
+
+  // Track key presses for heatmap
+  if (e.key.length === 1 && state.isActive) {
+    const key = e.key.toLowerCase();
+    state.keyTotal[key] = (state.keyTotal[key] || 0) + 1;
+    // Check if this will be an error
+    const currentWord = state.words[state.currentWordIndex];
+    const idx = state.currentLetterIndex;
+    if (idx < currentWord.length) {
+      if (e.key !== currentWord[idx]) {
+        state.keyErrors[key] = (state.keyErrors[key] || 0) + 1;
+      }
+    }
+    // Play typing sound
+    playClickSound();
+  }
+
   // Tab+Enter restart
   if (e.key === 'Tab') {
     e.preventDefault();
@@ -456,14 +550,14 @@ function moveToNextWord() {
   dom.inputField.value = '';
 
   // Check if test is over (word mode)
-  if (state.mode === 'words' && state.currentWordIndex >= state.modeValue) {
+  if ((state.mode === 'words' || state.mode === 'quote' || state.mode === 'custom') && state.currentWordIndex >= state.words.length) {
     endTest();
     return;
   }
 
   // If time mode and running low on words, add more
   if (state.mode === 'time' && state.currentWordIndex >= state.words.length - 20) {
-    const moreWords = getRandomWords(100);
+    const moreWords = getRandomWords(100, state.difficulty);
     moreWords.forEach((word, i) => {
       const w = applyPunctuation(word, i, 100);
       state.words.push(w);
@@ -547,6 +641,8 @@ function liveStatsTick() {
       endTest();
       return;
     }
+  } else if (state.mode === 'quote' || state.mode === 'custom') {
+    dom.liveTimer.textContent = Math.floor(elapsed);
   } else {
     dom.liveTimer.textContent = `${state.currentWordIndex}/${state.modeValue}`;
   }
@@ -638,7 +734,7 @@ function endTest() {
   dom.resultConsistency.textContent = finalConsistency + '%';
   dom.resultChars.textContent = `${state.correctChars}/${state.incorrectChars}/${state.extraChars}/${state.missedChars}`;
   dom.resultTime.textContent = elapsed.toFixed(1) + 's';
-  dom.resultTestType.textContent = `${state.mode} ${state.modeValue}${state.punctuation ? ' punctuation' : ''}${state.numbers ? ' numbers' : ''}`;
+  dom.resultTestType.textContent = `${state.mode}${state.mode === 'time' || state.mode === 'words' ? ' ' + state.modeValue : ''}${state.punctuation ? ' punctuation' : ''}${state.numbers ? ' numbers' : ''}${state.difficulty !== 'medium' ? ' ' + state.difficulty : ''}`;
 
   // Check personal best
   checkPersonalBest(finalWpm);
@@ -650,6 +746,16 @@ function endTest() {
 
   // Render chart
   renderChart();
+
+  // Render keyboard heatmap
+  renderHeatmap();
+
+  // Save to history
+  saveTestHistory(finalWpm, finalRawWpm, finalAcc, elapsed);
+
+  // Update streak and daily goal
+  updateStreak();
+  updateDailyGoal(finalWpm);
 }
 
 // ===== CHART =====
@@ -783,6 +889,9 @@ function restartTest() {
   state.extraChars = 0;
   state.missedChars = 0;
   state.totalKeystrokes = 0;
+  state.keyErrors = {};
+  state.keyTotal = {};
+  state.currentQuote = null;
 
   // Reset DOM
   dom.result.classList.add('hidden');
@@ -793,8 +902,15 @@ function restartTest() {
   dom.liveWpm.textContent = '0';
   dom.liveAcc.textContent = '100';
 
+  // Quote info
+  dom.quoteInfo.classList.add('hidden');
+  dom.quoteAuthor.textContent = '';
+
   if (state.mode === 'time') {
     dom.liveTimer.textContent = state.modeValue;
+    dom.liveTimerLabel.textContent = 'time';
+  } else if (state.mode === 'quote' || state.mode === 'custom') {
+    dom.liveTimer.textContent = '0';
     dom.liveTimerLabel.textContent = 'time';
   } else {
     dom.liveTimer.textContent = `0/${state.modeValue}`;
@@ -813,6 +929,12 @@ function restartTest() {
   generateWords();
   renderWords();
 
+  // Show quote author if applicable
+  if (state.mode === 'quote' && state.currentQuote) {
+    dom.quoteInfo.classList.remove('hidden');
+    dom.quoteAuthor.textContent = '— ' + state.currentQuote.author;
+  }
+
   // Focus
   dom.inputField.focus();
   updateCaret();
@@ -820,7 +942,7 @@ function restartTest() {
 
 // ===== MODE SWITCHING =====
 function initModeListeners() {
-  // Main mode buttons (time / words)
+  // Main mode buttons (time / words / quote / custom)
   document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -833,14 +955,23 @@ function initModeListeners() {
         dom.wordOptions.classList.add('hidden');
         const activeTimeSub = dom.timeOptions.querySelector('.sub-mode-btn.active');
         state.modeValue = parseInt(activeTimeSub.dataset.value);
-      } else {
+        restartTest();
+      } else if (state.mode === 'words') {
         dom.timeOptions.classList.add('hidden');
         dom.wordOptions.classList.remove('hidden');
         const activeWordSub = dom.wordOptions.querySelector('.sub-mode-btn.active');
         state.modeValue = parseInt(activeWordSub.dataset.value);
+        restartTest();
+      } else if (state.mode === 'quote') {
+        dom.timeOptions.classList.add('hidden');
+        dom.wordOptions.classList.add('hidden');
+        restartTest();
+      } else if (state.mode === 'custom') {
+        dom.timeOptions.classList.add('hidden');
+        dom.wordOptions.classList.add('hidden');
+        // Show custom text modal
+        dom.customTextModal.classList.remove('hidden');
       }
-
-      restartTest();
     });
   });
 
@@ -851,6 +982,16 @@ function initModeListeners() {
       parent.querySelectorAll('.sub-mode-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.modeValue = parseInt(btn.dataset.value);
+      restartTest();
+    });
+  });
+
+  // Difficulty buttons
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.difficulty = btn.dataset.diff;
       restartTest();
     });
   });
@@ -872,10 +1013,103 @@ function initModeListeners() {
   // Theme toggle
   dom.themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('light-theme');
+    localStorage.setItem('velotype-theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+  });
+
+  // Sound toggle
+  dom.soundToggle.addEventListener('click', () => {
+    state.soundEnabled = !state.soundEnabled;
+    dom.soundToggle.classList.toggle('active', state.soundEnabled);
+    localStorage.setItem('velotype-sound', state.soundEnabled ? 'on' : 'off');
+    updateSoundButtons();
   });
 
   // Restart button
   dom.restartBtn.addEventListener('click', restartTest);
+
+  // Logo click — go home (restart test)
+  const logoLink = document.querySelector('.logo-link');
+  if (logoLink) {
+    logoLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      restartTest();
+    });
+  }
+
+  // Stats button
+  dom.statsBtn.addEventListener('click', () => {
+    openStatsModal();
+  });
+  dom.statsClose.addEventListener('click', () => {
+    dom.statsModal.classList.add('hidden');
+  });
+  dom.statsModal.addEventListener('click', (e) => {
+    if (e.target === dom.statsModal) dom.statsModal.classList.add('hidden');
+  });
+
+  // Settings button
+  dom.settingsBtn.addEventListener('click', () => {
+    dom.settingsModal.classList.remove('hidden');
+  });
+  dom.settingsClose.addEventListener('click', () => {
+    dom.settingsModal.classList.add('hidden');
+  });
+  dom.settingsModal.addEventListener('click', (e) => {
+    if (e.target === dom.settingsModal) dom.settingsModal.classList.add('hidden');
+  });
+
+  // Caret style settings
+  document.querySelectorAll('[data-caret]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-caret]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.caretStyle = btn.dataset.caret;
+      applyCaretStyle();
+      localStorage.setItem('velotype-caret', state.caretStyle);
+    });
+  });
+
+  // Sound setting buttons in modal
+  document.querySelectorAll('[data-sound]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-sound]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.soundEnabled = btn.dataset.sound === 'on';
+      dom.soundToggle.classList.toggle('active', state.soundEnabled);
+      localStorage.setItem('velotype-sound', state.soundEnabled ? 'on' : 'off');
+    });
+  });
+
+  // Daily goal save
+  dom.saveGoalBtn.addEventListener('click', () => {
+    const goal = parseInt(dom.dailyGoalInput.value) || 50;
+    localStorage.setItem('velotype-daily-goal', goal);
+    updateDailyGoalDisplay();
+  });
+
+  // Clear history
+  dom.clearHistoryBtn.addEventListener('click', () => {
+    localStorage.removeItem('velotype-history');
+    openStatsModal();
+  });
+
+  // Custom text modal
+  dom.customTextClose.addEventListener('click', () => {
+    dom.customTextModal.classList.add('hidden');
+  });
+  dom.customTextModal.addEventListener('click', (e) => {
+    if (e.target === dom.customTextModal) dom.customTextModal.classList.add('hidden');
+  });
+  dom.startCustomBtn.addEventListener('click', () => {
+    const text = dom.customTextArea.value.trim();
+    if (!text) return;
+    state.words = text.split(/\s+/);
+    dom.customTextModal.classList.add('hidden');
+    restartCustomTest();
+  });
+
+  // Export button
+  dom.exportBtn.addEventListener('click', exportResults);
 }
 
 // ===== FOCUS MANAGEMENT =====
@@ -934,9 +1168,15 @@ function initInputListeners() {
 
 // ===== INITIALIZATION =====
 function init() {
+  // Load settings from browser cache
+  loadSettings();
+
   // Set initial timer display
   if (state.mode === 'time') {
     dom.liveTimer.textContent = state.modeValue;
+    dom.liveTimerLabel.textContent = 'time';
+  } else if (state.mode === 'quote' || state.mode === 'custom') {
+    dom.liveTimer.textContent = '0';
     dom.liveTimerLabel.textContent = 'time';
   } else {
     dom.liveTimer.textContent = `0/${state.modeValue}`;
@@ -949,11 +1189,369 @@ function init() {
   initFocusManagement();
   initInputListeners();
 
+  // Update streak and goal display on load
+  loadStreakDisplay();
+  updateDailyGoalDisplay();
+
+  // Apply caret style
+  applyCaretStyle();
+
   // Initial focus
   setTimeout(() => {
     dom.inputField.focus();
     updateCaret();
   }, 100);
+}
+
+// ===== FEATURE 1: SOUND EFFECTS (Web Audio API) =====
+function initAudioContext() {
+  if (!state.audioCtx) {
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playClickSound() {
+  if (!state.soundEnabled) return;
+  try {
+    initAudioContext();
+    const ctx = state.audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(800 + Math.random() * 400, ctx.currentTime);
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.03, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.05);
+  } catch (e) { /* ignore audio errors */ }
+}
+
+function playErrorSound() {
+  if (!state.soundEnabled) return;
+  try {
+    initAudioContext();
+    const ctx = state.audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(200, ctx.currentTime);
+    osc.type = 'square';
+    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.1);
+  } catch (e) { /* ignore audio errors */ }
+}
+
+function updateSoundButtons() {
+  const onBtn = document.getElementById('soundOnBtn');
+  const offBtn = document.getElementById('soundOffBtn');
+  if (onBtn && offBtn) {
+    onBtn.classList.toggle('active', state.soundEnabled);
+    offBtn.classList.toggle('active', !state.soundEnabled);
+  }
+}
+
+// ===== FEATURE 2: TYPING HISTORY / STATS DASHBOARD =====
+function saveTestHistory(wpm, rawWpm, acc, time) {
+  const history = JSON.parse(localStorage.getItem('velotype-history') || '[]');
+  history.unshift({
+    wpm,
+    rawWpm,
+    acc,
+    mode: `${state.mode} ${state.mode === 'time' || state.mode === 'words' ? state.modeValue : ''}`.trim(),
+    difficulty: state.difficulty,
+    time: parseFloat(time.toFixed(1)),
+    date: new Date().toISOString(),
+  });
+  // Keep last 100 entries
+  if (history.length > 100) history.length = 100;
+  localStorage.setItem('velotype-history', JSON.stringify(history));
+}
+
+function openStatsModal() {
+  const history = JSON.parse(localStorage.getItem('velotype-history') || '[]');
+
+  // Summary stats
+  const totalTests = history.length;
+  const avgWpm = totalTests > 0 ? Math.round(history.reduce((s, h) => s + h.wpm, 0) / totalTests) : 0;
+  const bestWpm = totalTests > 0 ? Math.max(...history.map(h => h.wpm)) : 0;
+  const totalTimeSec = history.reduce((s, h) => s + h.time, 0);
+  const totalTimeMin = Math.round(totalTimeSec / 60);
+  const avgAcc = totalTests > 0 ? Math.round(history.reduce((s, h) => s + h.acc, 0) / totalTests) : 0;
+  const streakData = JSON.parse(localStorage.getItem('velotype-streak') || '{}');
+
+  dom.statsTotalTests.textContent = totalTests;
+  dom.statsAvgWpm.textContent = avgWpm;
+  dom.statsBestWpm.textContent = bestWpm;
+  dom.statsTotalTime.textContent = totalTimeMin + 'm';
+  dom.statsAvgAcc.textContent = avgAcc + '%';
+  dom.statsStreak.textContent = streakData.count || 0;
+
+  // History table
+  dom.historyTableBody.innerHTML = '';
+  history.slice(0, 50).forEach(h => {
+    const tr = document.createElement('tr');
+    const d = new Date(h.date);
+    const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    tr.innerHTML = `<td>${h.wpm}</td><td>${h.rawWpm}</td><td>${h.acc}%</td><td>${h.mode}</td><td>${h.time}s</td><td>${dateStr}</td>`;
+    dom.historyTableBody.appendChild(tr);
+  });
+
+  dom.statsModal.classList.remove('hidden');
+}
+
+// ===== FEATURE 3: DIFFICULTY (already handled in words.js + mode listeners) =====
+
+// ===== FEATURE 4: CARET STYLE OPTIONS =====
+function applyCaretStyle() {
+  dom.caret.classList.remove('caret-block', 'caret-underline');
+  if (state.caretStyle === 'block') {
+    dom.caret.classList.add('caret-block');
+  } else if (state.caretStyle === 'underline') {
+    dom.caret.classList.add('caret-underline');
+  }
+}
+
+// ===== FEATURE 5: SHAKE ANIMATION =====
+function triggerShake(element) {
+  element.classList.remove('shake');
+  // Force reflow to restart animation
+  void element.offsetWidth;
+  element.classList.add('shake');
+  element.addEventListener('animationend', () => {
+    element.classList.remove('shake');
+  }, { once: true });
+}
+
+// ===== FEATURE 6: CAPSLOCK WARNING (handled in handleKeydown) =====
+
+// ===== FEATURE 7: CUSTOM TEXT / QUOTE MODE =====
+function restartCustomTest() {
+  // Reset state for custom mode after words are set
+  clearInterval(state.timer);
+  clearInterval(state.historyTimer);
+
+  state.isActive = false;
+  state.isFinished = false;
+  state.currentWordIndex = 0;
+  state.currentLetterIndex = 0;
+  state.currentInput = '';
+  state.inputHistory = [];
+  state.startTime = 0;
+  state.timeElapsed = 0;
+  state.wpmHistory = [];
+  state.rawWpmHistory = [];
+  state.errorCountHistory = [];
+  state.correctChars = 0;
+  state.incorrectChars = 0;
+  state.extraChars = 0;
+  state.missedChars = 0;
+  state.totalKeystrokes = 0;
+  state.keyErrors = {};
+  state.keyTotal = {};
+
+  dom.result.classList.add('hidden');
+  dom.typingTest.classList.remove('hidden');
+  dom.modeSelector.classList.remove('hidden');
+  dom.liveStats.classList.remove('visible');
+  dom.liveWpm.textContent = '0';
+  dom.liveAcc.textContent = '100';
+  dom.liveTimer.textContent = '0';
+  dom.liveTimerLabel.textContent = 'time';
+  dom.inputField.value = '';
+
+  if (state.chartInstance) {
+    state.chartInstance.destroy();
+    state.chartInstance = null;
+  }
+
+  renderWords();
+  dom.inputField.focus();
+  updateCaret();
+}
+
+// ===== FEATURE 8: KEYBOARD HEATMAP =====
+function renderHeatmap() {
+  const rows = [
+    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
+    ['space']
+  ];
+
+  dom.keyboardHeatmap.innerHTML = '';
+
+  // Calculate max error ratio for color scaling
+  let maxRatio = 0;
+  for (const key of Object.keys(state.keyTotal)) {
+    const total = state.keyTotal[key] || 0;
+    const errors = state.keyErrors[key] || 0;
+    if (total > 0) {
+      const ratio = errors / total;
+      if (ratio > maxRatio) maxRatio = ratio;
+    }
+  }
+
+  rows.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'kb-row';
+
+    row.forEach(key => {
+      const keyEl = document.createElement('div');
+      keyEl.className = 'kb-key' + (key === 'space' ? ' space' : '');
+      keyEl.textContent = key === 'space' ? 'space' : key;
+
+      const lookupKey = key === 'space' ? ' ' : key;
+      const total = state.keyTotal[lookupKey] || 0;
+      const errors = state.keyErrors[lookupKey] || 0;
+
+      if (total > 0) {
+        const errorRatio = errors / total;
+        const hue = Math.max(0, 120 - (errorRatio / Math.max(maxRatio, 0.01)) * 120);
+        const saturation = 70;
+        const lightness = 45;
+        keyEl.style.background = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        keyEl.style.color = '#fff';
+
+        // Show error count
+        const countEl = document.createElement('span');
+        countEl.className = 'key-count';
+        countEl.textContent = errors > 0 ? errors : '';
+        keyEl.appendChild(countEl);
+      }
+
+      rowEl.appendChild(keyEl);
+    });
+
+    dom.keyboardHeatmap.appendChild(rowEl);
+  });
+}
+
+// ===== FEATURE 9: STREAK COUNTER & DAILY GOAL =====
+function updateStreak() {
+  const today = new Date().toISOString().split('T')[0];
+  const streakData = JSON.parse(localStorage.getItem('velotype-streak') || '{}');
+
+  if (streakData.lastDate === today) {
+    // Already practiced today, no change
+    return;
+  }
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  if (streakData.lastDate === yesterday) {
+    // Consecutive day
+    streakData.count = (streakData.count || 0) + 1;
+  } else if (!streakData.lastDate) {
+    // First time
+    streakData.count = 1;
+  } else {
+    // Streak broken
+    streakData.count = 1;
+  }
+
+  streakData.lastDate = today;
+  localStorage.setItem('velotype-streak', JSON.stringify(streakData));
+  loadStreakDisplay();
+}
+
+function loadStreakDisplay() {
+  const streakData = JSON.parse(localStorage.getItem('velotype-streak') || '{}');
+  dom.streakCount.textContent = streakData.count || 0;
+}
+
+function updateDailyGoal(wpm) {
+  const today = new Date().toISOString().split('T')[0];
+  const goalData = JSON.parse(localStorage.getItem('velotype-daily-progress') || '{}');
+
+  if (goalData.date !== today) {
+    goalData.date = today;
+    goalData.bestWpm = 0;
+    goalData.testsToday = 0;
+  }
+
+  goalData.testsToday = (goalData.testsToday || 0) + 1;
+  goalData.bestWpm = Math.max(goalData.bestWpm || 0, wpm);
+  localStorage.setItem('velotype-daily-progress', JSON.stringify(goalData));
+  updateDailyGoalDisplay();
+}
+
+function updateDailyGoalDisplay() {
+  const goal = parseInt(localStorage.getItem('velotype-daily-goal')) || 50;
+  const today = new Date().toISOString().split('T')[0];
+  const goalData = JSON.parse(localStorage.getItem('velotype-daily-progress') || '{}');
+
+  let bestToday = 0;
+  if (goalData.date === today) {
+    bestToday = goalData.bestWpm || 0;
+  }
+
+  const percent = Math.min(100, Math.round((bestToday / goal) * 100));
+  dom.goalBarFill.style.width = percent + '%';
+  dom.goalText.textContent = `${bestToday}/${goal} wpm goal`;
+  dom.dailyGoalInput.value = goal;
+}
+
+// ===== FEATURE 10: EXPORT RESULTS =====
+function exportResults() {
+  const wpm = dom.resultWpm.textContent;
+  const acc = dom.resultAcc.textContent;
+  const raw = dom.resultRaw.textContent;
+  const consistency = dom.resultConsistency.textContent;
+  const chars = dom.resultChars.textContent;
+  const time = dom.resultTime.textContent;
+  const testType = dom.resultTestType.textContent;
+
+  const text = `\u26a1 VeloType Results\n${'='.repeat(30)}\nWPM: ${wpm}\nAccuracy: ${acc}\nRaw WPM: ${raw}\nConsistency: ${consistency}\nCharacters: ${chars}\nTime: ${time}\nTest Type: ${testType}\nDate: ${new Date().toLocaleString()}\n${'='.repeat(30)}\nhttps://velotype.app`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const original = dom.exportBtn.innerHTML;
+    dom.exportBtn.innerHTML = '<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><polyline points=\"20 6 9 17 4 12\"/></svg> copied!';
+    setTimeout(() => {
+      dom.exportBtn.innerHTML = original;
+    }, 2000);
+  }).catch(() => {
+    // Fallback: download as text file
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `velotype-result-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+// ===== LOAD SETTINGS FROM CACHE =====
+function loadSettings() {
+  // Theme
+  const theme = localStorage.getItem('velotype-theme');
+  if (theme === 'light') document.body.classList.add('light-theme');
+
+  // Sound
+  const sound = localStorage.getItem('velotype-sound');
+  if (sound === 'on') {
+    state.soundEnabled = true;
+    dom.soundToggle.classList.add('active');
+  }
+  updateSoundButtons();
+
+  // Caret style
+  const caret = localStorage.getItem('velotype-caret');
+  if (caret) {
+    state.caretStyle = caret;
+    document.querySelectorAll('[data-caret]').forEach(b => {
+      b.classList.toggle('active', b.dataset.caret === caret);
+    });
+  }
+
+  // Daily goal
+  const goal = localStorage.getItem('velotype-daily-goal');
+  if (goal) dom.dailyGoalInput.value = goal;
 }
 
 // Start the app
